@@ -1,0 +1,11 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="signer-gui:jar">
+    <output-path>$PROJECT_DIR$/../../artifacts/signer_gui_jar</output-path>
+    <root id="archive" name="signer-gui.jar">
+      <element id="module-output" name="signer-gui" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/externalLib/flatlaf-extras-2.6.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/externalLib/flatlaf-2.6.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/externalLib/svgSalamander-1.1.4.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
