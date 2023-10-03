@@ -6,6 +6,7 @@ import javax.swing.text.Style;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 import java.awt.*;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -41,51 +42,75 @@ public class Commands {
         }
         print(cm);
         paneStyle(jLabel, cm + "\n", "", "", "");
-        return runCommand(cm);
+        return runCommand(cm, true);
     }
 
     public boolean sign(ParentModel signModel) {
         String apk_path = makeArguments(signModel.getApk_path());
         String key_alias = makeArguments(signModel.getAlias());
         String key_store_path = makeArguments(signModel.getKey_store());
+        String out_put_apk_path = getZipAlignedApkPath(apk_path);
         String cm;
+        boolean success;
         if (isWindows()) {
-            cm = "java -jar " + "\"" + getUberPath() + "\"" + " -a " + "\"" + apk_path + "\"" + " --ks "
-                    + "\"" + key_store_path + "\"" + " --ksAlias " + key_alias +
-                    " --ksKeyPass password --ksPass password --zipAlignPath " + "\"" + getZipAlignPath() + "\"" + " --debug";
+            cm = getZipAlignPath() + " -p -f -v 4 " + apk_path + " " + out_put_apk_path + "\"";
+            success = runCommand(cm, false);
+            if (success) {
+                cm = "java -jar " + "\"" + getApkSignerPath() + "\"" + " sign --ks "
+                        + "\"" + key_store_path + "\"" + " --ks-key-alias " + key_alias +
+                        " --ks-pass pass:password --key-pass pass:password " + out_put_apk_path + "\"";
+                success = runCommand(cm, false);
+                if (success) {
+                    cm = "java -jar " + "\"" + getApkSignerPath() + "\"" + " verify -v -v4-signature-file "
+                            + out_put_apk_path + ".idsig" + "\"" + " " + out_put_apk_path + "\"";
+                    success = runCommand(cm, false);
+                }
+            }
         } else {
-            cm = "java -jar " + getUberPath() + " -a " + apk_path + " --ks "
-                    + key_store_path + " --ksAlias " + key_alias +
-                    " --ksKeyPass password --ksPass password --zipAlignPath " + getZipAlignPath() + " --debug";
+            cm = getZipAlignPath() + " -p -f -v 4 " + apk_path + " " + out_put_apk_path;
+            success = runCommand(cm, false);
+            if (success) {
+                cm = "java -jar " + getApkSignerPath() + " sign --ks "
+                        + key_store_path + " --ks-key-alias " + key_alias +
+                        " --ks-pass pass:password --key-pass pass:password " + out_put_apk_path;
+                success = runCommand(cm, false);
+                if (success) {
+                    cm = "java -jar " + getApkSignerPath() + " verify -v -v4-signature-file "
+                            + out_put_apk_path + ".idsig " + out_put_apk_path;
+                    success = runCommand(cm, false);
+                }
+            }
         }
         print(cm);
         paneStyle(jLabel, cm + "\n", "", "", "");
-        return runCommand(cm);
+        return success;
     }
 
-    private boolean runCommand(String cm) {
+    private boolean runCommand(String cm, boolean gen_key) {
+        print(cm);
         Process p;
         try {
             p = Runtime.getRuntime().exec(cm);
         } catch (Exception e) {
-            e.printStackTrace();
+            paneStyle(jLabel, "", "", "", e.toString());
             return false;
         }
         try {
-            logOutputCommand(p.getInputStream());
-            print(p.getErrorStream());
-            return logOutputError(p.getErrorStream());
-
-        } catch (IOException e) {
-            jLabel.setText(e.toString());
-            e.printStackTrace();
+            if (gen_key) {
+                return logOutputCommand(p.getInputStream(), true);
+            } else {
+                logOutputCommand(p.getInputStream(), false);
+                return logOutputError(p.getErrorStream());
+            }
+        } catch (Exception e) {
+            paneStyle(jLabel, "", "", "", e.toString());
             return false;
         }
     }
 
     private void paneStyle(JTextPane pane, String cm, String code_execution, String warning, String error) {
         StyledDocument doc = pane.getStyledDocument();
-        Style style = pane.addStyle("I'm a Style", null);
+        Style style = pane.addStyle("name", null);
 
         StyleConstants.setForeground(style, Color.WHITE);
         try {
@@ -127,11 +152,22 @@ public class Commands {
             return "bin/linux/";
     }
 
-    private String getUberPath() {
+    private String getApkSignerPath() {
         if (isWindows())
-            return "bin\\uber-apk-signer.jar";
+            return "bin\\apksigner.jar";
         else
-            return "bin/uber-apk-signer.jar";
+            return "bin/apksigner.jar";
+    }
+
+    private String getZipAlignedApkPath(String apk_path) {
+        File apk_file = new File(apk_path);
+        String apk_path_parent = apk_file.getParent();
+        String apk_name = apk_file.getName().split(".apk")[0];
+        String apk_zip_aligned = apk_name + "-zip-aligned" + ".apk";
+        if (isWindows())
+            return apk_path_parent + "\\" + apk_zip_aligned;
+        else
+            return apk_path_parent + "/" + apk_zip_aligned;
     }
 
     private boolean isWindows() {
@@ -142,38 +178,47 @@ public class Commands {
         if (s.isEmpty())
             return "Unknown";
         else
-            return "\""+s+"\"";
+            return "\"" + s + "\"";
     }
 
-    private boolean logOutputError(InputStream inputStream) throws IOException {
+    private boolean logOutputError(InputStream inputStream) {
         StringBuilder sb = new StringBuilder();
         boolean successful = true;
-        for (int ch; (ch = inputStream.read()) != -1; ) {
-            successful = false;
-            sb.append((char) ch);
-        }
         try {
+            for (int ch; (ch = inputStream.read()) != -1; ) {
+                successful = false;
+                sb.append((char) ch);
+            }
             if (!successful) {
                 String r = sb.toString();
                 print(r);
-                if (r.substring(0, 10).toLowerCase().contains("warning")) {
+                String first_chars = r.substring(0, 10).toLowerCase();
+                if (first_chars.contains("warning")) {
                     paneStyle(jLabel, "", "", r, "");
-                } else if (r.substring(0, 10).toLowerCase().contains("exception")) {
-                    paneStyle(jLabel, "", "", "", r);
                 } else {
-                    paneStyle(jLabel, "", r, "", "");
-                    successful = true;
+                    paneStyle(jLabel, "", "", "", r);
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception ignored) {
+
         }
         return successful;
     }
 
-    private void logOutputCommand(InputStream inputStream) throws IOException {
+    private boolean logOutputCommand(InputStream inputStream, boolean gen_key) throws IOException {
+        StringBuilder sb = new StringBuilder();
         for (int ch; (ch = inputStream.read()) != -1; ) {
-            paneStyle(jLabel, "", String.valueOf((char) ch), "", "");
+            sb.append((char) ch);
         }
+        String output = sb.toString();
+        if (gen_key) {
+            if (output.contains("keytool error:")) {
+                paneStyle(jLabel, "", "", "", output);
+                return false;
+            }
+        } else {
+            paneStyle(jLabel, "", sb.toString(), "", "");
+        }
+        return true;
     }
 }
