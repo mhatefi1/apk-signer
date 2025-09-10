@@ -1,4 +1,47 @@
-*.apk
-bin/
+
+
+
+# Compiled class files and build outputs
+out/
+build/
+target/
 release/
+bin/
+
+# IntelliJ IDEA project files
+# Ignore user-specific files but keep shared project configuration
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/shelf/
+.idea/dictionaries/
+.idea/vcs.xml
+
+# Module files (generated from pom.xml or build.gradle)
+*.iml
+
+# Gradle-specific files
+.gradle/
+build/
+
+# Maven-specific files
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+
+# Log files
+*.log
+logs/
+
+# Packaged artifacts
+*.jar
+*.war
+*.ear
+*.apk
 apk-signer.jar
+
+# OS-specific files
+.DS_Store
+Thumbs.db
